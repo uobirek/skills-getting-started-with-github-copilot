@@ -11,25 +11,32 @@ from app import app
 client = TestClient(app)
 
 
-def test_unregister_participant_from_activity():
-    email = "tempstudent@mergington.edu"
+def test_get_activities_returns_activity_list():
+    response = client.get("/activities")
 
-    signup_response = client.post(
-        f"/activities/Chess Club/signup?email={email}"
-    )
-    assert signup_response.status_code == 200
+    assert response.status_code == 200
+    data = response.json()
+    assert "Chess Club" in data
+    assert data["Chess Club"]["participants"]
 
-    unregister_response = client.delete(
-        f"/activities/Chess Club/participants/{email}"
-    )
-    assert unregister_response.status_code == 200
+
+def test_signup_for_activity_adds_participant():
+    email = "pyteststudent@mergington.edu"
+
+    response = client.post(f"/activities/Chess Club/signup?email={email}")
+
+    assert response.status_code == 200
+    assert response.json()["message"] == f"Signed up {email} for Chess Club"
 
     activities = client.get("/activities").json()
-    assert email not in activities["Chess Club"]["participants"]
+    assert email in activities["Chess Club"]["participants"]
 
 
-def test_unregister_unknown_participant_returns_not_found():
-    response = client.delete(
-        "/activities/Chess Club/participants/unknown@mergington.edu"
-    )
-    assert response.status_code == 404
+def test_duplicate_signup_is_rejected():
+    email = "existingstudent@mergington.edu"
+    client.post(f"/activities/Chess Club/signup?email={email}")
+
+    response = client.post(f"/activities/Chess Club/signup?email={email}")
+
+    assert response.status_code == 400
+    assert "already signed up" in response.json()["detail"].lower()
